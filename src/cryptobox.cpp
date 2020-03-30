@@ -23,14 +23,14 @@ using Buffer = std::vector<unsigned char>;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-constexpr int HEX_BYTE_MINIMUM_WIDTH = 2;
-constexpr int EC_BRAINPOOLP256R1_KEY_SIZE = 32;
-constexpr int CSPRNG_SEED_LENGTH = 4096;
-constexpr int CHACHA20_KEY_SIZE = 32;
-constexpr int CHACHA20_IV_SIZE = 12;
 constexpr int CHACHA20_AUTHN_TAG_SIZE = 16;
+constexpr int CHACHA20_IV_SIZE = 12;
+constexpr int CHACHA20_KEY_SIZE = 32;
+constexpr int CSPRNG_SEED_LENGTH = 4096;
+constexpr int EC_BRAINPOOLP256R1_KEY_SIZE = 32;
+constexpr int HEX_BYTE_MINIMUM_WIDTH = 2;
 constexpr int KEY_HANDLE_SIZE = 32;
-constexpr const char* KEY_STORAGE_PATH = "../storage";
+constexpr const char* KEY_STORAGE_PATH = "storage/keys";
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
