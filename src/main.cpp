@@ -120,7 +120,7 @@ EVP_PKEY* generateEvpPkey()
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Buffer deriveFromPassPhrase(const std::string& passPhrase, const Buffer& saltData)
+Buffer deriveFromPassPhrase(const std::string& passphrase, const Buffer& saltData)
 {
     auto evpPkeyContext = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr);
     bail(nullptr != evpPkeyContext, "EVP_PKEY_CTX_new_id");
@@ -133,7 +133,7 @@ Buffer deriveFromPassPhrase(const std::string& passPhrase, const Buffer& saltDat
 
     bail(EVP_PKEY_CTX_set_hkdf_md(evpPkeyContext, evpMdSha3), "EVP_PKEY_CTX_set_hkdf_md");
     bail(EVP_PKEY_CTX_set1_hkdf_salt(evpPkeyContext, saltData.data(), saltData.size()), "EVP_PKEY_CTX_set1_hkdf_salt");
-    bail(EVP_PKEY_CTX_set1_hkdf_key(evpPkeyContext, passPhrase.c_str(), passPhrase.size()),
+    bail(EVP_PKEY_CTX_set1_hkdf_key(evpPkeyContext, passphrase.c_str(), passphrase.size()),
          "EVP_PKEY_CTX_set1_hkdf_key");
 
     Buffer derivationResult(CHACHA20_KEY_SIZE + CHACHA20_IV_SIZE);
@@ -218,7 +218,7 @@ BIO* constructFileBio(const std::string& fileName, const std::string& openMode)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-BIO* constructCipherBio(const Buffer& keyHandle, const std::string passPhrase, int isEncryption)
+BIO* constructCipherBio(const Buffer& keyHandle, const std::string passphrase, int isEncryption)
 {
    	auto cipherBioMethod = BIO_f_cipher();
     bail(nullptr != cipherBioMethod, "BIO_f_cipher");
@@ -229,7 +229,7 @@ BIO* constructCipherBio(const Buffer& keyHandle, const std::string passPhrase, i
    	auto evpCipherChacha20Poly1305 = EVP_chacha20_poly1305();
    	bail(nullptr != evpCipherChacha20Poly1305, "EVP_chacha20_poly1305");
 
-   	auto derivation = deriveFromPassPhrase(passPhrase, keyHandle);
+   	auto derivation = deriveFromPassPhrase(passphrase, keyHandle);
    	auto key = Buffer(derivation.cbegin(), derivation.cbegin() + CHACHA20_KEY_SIZE);
    	bail(CHACHA20_KEY_SIZE == key.size(), "deriveFromPassPhrase");
    	auto iv = Buffer(derivation.cbegin() + CHACHA20_KEY_SIZE, derivation.cend());
@@ -296,13 +296,13 @@ EVP_CIPHER_CTX* getCipherCtxFromCipherBio(BIO* cipherBio)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Buffer writeEvpPkey(EVP_PKEY* evpPkey, const std::string& passPhrase)
+Buffer writeEvpPkey(EVP_PKEY* evpPkey, const std::string& passphrase)
 {
 	auto keyHandle = computeKeyHandle(evpPkey);
    	bail(KEY_HANDLE_SIZE == keyHandle.size(), "computeKeyHandle");
 
    	auto fileBio = constructFileBio(getFilenameFromKeyHandle(keyHandle), "wb");
-   	auto cipherBio = constructCipherBio(keyHandle, passPhrase, 1);
+   	auto cipherBio = constructCipherBio(keyHandle, passphrase, 1);
 
    	auto evpCipherCtx = getCipherCtxFromCipherBio(cipherBio);
     setAdditionalAuthenticatedData(evpCipherCtx, keyHandle);
@@ -316,8 +316,8 @@ Buffer writeEvpPkey(EVP_PKEY* evpPkey, const std::string& passPhrase)
 	bail(i2d_PKCS8PrivateKey_bio(cipherBio,
 	                             evpPkey,
 	                             evpCipherAes256Cbc,
-	                             passPhrase.c_str(),
-	                             passPhrase.size(),
+	                             passphrase.c_str(),
+	                             passphrase.size(),
 	                             nullptr,
 	                             nullptr),
 	     "i2d_PKCS8PrivateKey_bio");
@@ -337,12 +337,12 @@ Buffer writeEvpPkey(EVP_PKEY* evpPkey, const std::string& passPhrase)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-EVP_PKEY* readEvpPkey(const Buffer& keyHandle, const std::string& passPhrase)
+EVP_PKEY* readEvpPkey(const Buffer& keyHandle, const std::string& passphrase)
 {
    	bail(KEY_HANDLE_SIZE == keyHandle.size(), "wrong keyHandle size");
 
    	auto fileBio = constructFileBio(getFilenameFromKeyHandle(keyHandle), "rb");
-   	auto cipherBio = constructCipherBio(keyHandle, passPhrase, 0);
+   	auto cipherBio = constructCipherBio(keyHandle, passphrase, 0);
 
     Buffer authenticationTag(CHACHA20_AUTHN_TAG_SIZE);
     bail(authenticationTag.size() == BIO_read(fileBio, authenticationTag.data(), authenticationTag.size()), "BIO_read");
@@ -358,11 +358,11 @@ EVP_PKEY* readEvpPkey(const Buffer& keyHandle, const std::string& passPhrase)
 		                     			    &keyResult,
 		                         			[](char* outputBuffer, int outputBufferLength, int, void* userData) -> int
 		                         			{
-		                         				auto passPhrase = *reinterpret_cast<const std::string*>(userData);
-		                         				std::strncpy(outputBuffer, passPhrase.c_str(), outputBufferLength);
-		                         				return passPhrase.size();
+		                         				auto passphrase = *reinterpret_cast<const std::string*>(userData);
+		                         				std::strncpy(outputBuffer, passphrase.c_str(), outputBufferLength);
+		                         				return passphrase.size();
 		                         			},
-		                         			&const_cast<std::string&>(passPhrase)),
+		                         			&const_cast<std::string&>(passphrase)),
 	     "d2i_PKCS8PrivateKey_bio");
 
 	triggerCipherFinal(evpCipherCtx);
