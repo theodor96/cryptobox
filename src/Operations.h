@@ -30,23 +30,21 @@ namespace cryptobox
         /**
          * TODO: write docs
          */
-		static KeyHandlePtr generateKey(const std::string& passphrase);
+		KeyHandlePtr generateKey(const std::string& passphrase);
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         /**
          * TODO: write docs
          */
-		static SignaturePtr signMessage(const MessagePtr& message, const KeyHandlePtr& keyHandle);
+		SignaturePtr signMessage(const MessagePtr& message, const KeyHandlePtr& keyHandle);
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         /**
          * TODO: write docs
          */
-		static bool verifySignature(const SignaturePtr& signature,
-		                            const MessagePtr& message,
-		                            const KeyHandlePtr& keyHandle);
+		bool verifySignature(const SignaturePtr& signature, const MessagePtr& message, const KeyHandlePtr& keyHandle);
 	}
 }
 

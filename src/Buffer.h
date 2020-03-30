@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -17,6 +18,8 @@ namespace cryptobox
     class Buffer
     {
     public:
+        Buffer() = default;
+
         /**
          * TODO: docs
          */
@@ -32,8 +35,17 @@ namespace cryptobox
          */
         static Buffer createFromRawBuffer(const unsigned char* rawBuffer, std::size_t rawBufferLength);
 
+        /**
+         * TODO: docs
+         */
+        std::string toHex() const;
+
     private:
-        Buffer(const unsigned char* rawBuffer, std::size_t rawBufferLength);
+        using InternalBuffer = std::vector<unsigned char>;
+
+        InternalBuffer r_buffer;
+
+        Buffer(InternalBuffer r_buffer);
     };
 }
 

@@ -10,7 +10,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-constexpr int BULK_ITERATIONS_COUNT = 10;
+constexpr int BULK_ITERATIONS_COUNT = 1;
 constexpr const char* KEY_PASSPHRASE = "my very secret passphrase";
 constexpr const char* MESSAGE_TO_SIGN = "some message I intend to sign with ECDSA via brainpoolp256r1";
 constexpr const char* SPECIFIC_PUBLIC_KEY_HEX = "";
@@ -23,7 +23,7 @@ class CryptoboxClient
 {
 public:
     CryptoboxClient()
-    : r_message{std::make_unique<cryptobox::Message>(cryptobox::Buffer::createFromString(MESSAGE_TO_SIGN))}
+    : r_message{std::make_unique<cryptobox::Message>(cryptobox::Buffer::createFromText(MESSAGE_TO_SIGN))}
     {
 
     }
@@ -33,19 +33,20 @@ public:
         for (auto itr = 0; itr < BULK_ITERATIONS_COUNT; ++itr)
         {
             auto keyHandle = cryptobox::operations::generateKey(KEY_PASSPHRASE + std::to_string(itr));
-            std::cout << "\n\ncryptobox generated key with name = "
+            std::cout << "\n\ntestBulk: cryptobox generated key with name = "
                       << keyHandle->getName()
                       << ", passphrase = "
                       << keyHandle->getPassphrase();
 
             auto signature = cryptobox::operations::signMessage(r_message, keyHandle);
-            std::cout << "\n\ncryptobox produced signature = "
+            std::cout << "\n\ntestBulk: cryptobox produced signature = "
                       << signature->getBuffer().toHex()
                       << ", for message = "
                       << r_message->getBuffer().toHex();
 
             auto isSignatureValid = cryptobox::operations::verifySignature(signature, r_message, keyHandle);
-            std::cout << "\n\ncryptobox attempted to verify the given signature, result = " << isSignatureValid;
+            std::cout << "\n\ntestBulk: cryptobox attempted to verify the given signature, result = "
+                      << isSignatureValid;
         }
     }
 
@@ -56,13 +57,15 @@ public:
 
         auto validSignature = std::make_unique<cryptobox::Signature>(
                                                         cryptobox::Buffer::createFromHex(SPECIFIC_VALID_SIGNATURE_HEX));
-        auto isSignatureValid = cryptobox::operations::verifySignature(validSignature, r_message, keyHandle);
-        std::cout << "\n\ncryptobox attempted to verify specific valid signature, result = " << isSignatureValid;
+        auto isValidSignatureValid = cryptobox::operations::verifySignature(validSignature, r_message, keyHandle);
+        std::cout << "\n\ntestSpecifics: cryptobox attempted to verify specific valid signature, result = "
+                  << isValidSignatureValid;
 
         auto invalidSignature = std::make_unique<cryptobox::Signature>(
                                                       cryptobox::Buffer::createFromHex(SPECIFIC_INVALID_SIGNATURE_HEX));
-        isSignatureValid = cryptobox::operations::verifySignature(invalidSignature, r_message, keyHandle);
-        std::cout << "\n\ncryptobox attempted to verify specific invalid signature, result = " << isSignatureValid;
+        auto isInvalidSignatureValid = cryptobox::operations::verifySignature(invalidSignature, r_message, keyHandle);
+        std::cout << "\n\ntestSpecifics: cryptobox attempted to verify specific invalid signature, result = "
+                  << isInvalidSignatureValid;
     }
 
 private:
@@ -77,6 +80,8 @@ int main()
 
     cryptoboxClient.testBulk();
     cryptoboxClient.testSpecifics();
+
+    std::cout << "\n" << std::endl;
 
     return 0;
 }
