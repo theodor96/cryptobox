@@ -12,7 +12,7 @@ add_executable(cryptobox-client
                src/cryptobox.cpp
                src/CryptoBoxService.h
                src/CryptoBoxService.cpp
-              )
+        src/KeyHandle.cpp src/KeyHandle.h src/Message.cpp src/Message.h src/Signature.cpp src/Signature.h)
 
 target_include_directories(cryptobox-client PRIVATE /Users/theodorserbana/Desktop/repos/openssl/include)
 
