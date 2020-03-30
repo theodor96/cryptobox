@@ -1,4 +1,4 @@
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <openssl/ec.h>
 #include <openssl/evp.h>
@@ -6,7 +6,7 @@
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <cstddef>
 #include <cstdio>
@@ -17,21 +17,22 @@
 #include <string>
 #include <vector>
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 using Buffer = std::vector<unsigned char>;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const int HEX_BYTE_MINIMUM_WIDTH = 2;
-const int EC_BRAINPOOLP256R1_KEY_SIZE = 32;
-const int CSPRNG_SEED_LENGTH = 4096;
-const int CHACHA20_KEY_SIZE = 32;
-const int CHACHA20_IV_SIZE = 12;
-const int CHACHA20_AUTHN_TAG_SIZE = 16;
-const int KEY_HANDLE_SIZE = 32;
+constexpr int HEX_BYTE_MINIMUM_WIDTH = 2;
+constexpr int EC_BRAINPOOLP256R1_KEY_SIZE = 32;
+constexpr int CSPRNG_SEED_LENGTH = 4096;
+constexpr int CHACHA20_KEY_SIZE = 32;
+constexpr int CHACHA20_IV_SIZE = 12;
+constexpr int CHACHA20_AUTHN_TAG_SIZE = 16;
+constexpr int KEY_HANDLE_SIZE = 32;
+constexpr const char* KEY_STORAGE_PATH = "../storage";
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void bail(int status, const std::string& errorMessage)
 {
@@ -42,7 +43,7 @@ void bail(int status, const std::string& errorMessage)
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 std::string getHexaFromBuffer(const Buffer& data)
 {
@@ -55,16 +56,16 @@ std::string getHexaFromBuffer(const Buffer& data)
 	return stream.str();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 std::string getFilenameFromKeyHandle(const Buffer& keyHandle)
 {
 	// i'd love some base64 here but case insensitive filesystems wouldn't love it as much
 
-	return "keys/" + getHexaFromBuffer(keyHandle);
+	return KEY_STORAGE_PATH + std::string{"/"} + getHexaFromBuffer(keyHandle);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Buffer getPrivateKeyBuffer(EVP_PKEY* evpPkey)
 {
@@ -83,7 +84,19 @@ Buffer getPrivateKeyBuffer(EVP_PKEY* evpPkey)
 	return privateKeyBuffer;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void seedCsprng()
+{
+    static bool csprngAlreadySeeded{false};
+    if (!csprngAlreadySeeded)
+    {
+        bail(CSPRNG_SEED_LENGTH == RAND_load_file("/dev/random", CSPRNG_SEED_LENGTH), "RAND_load_file");
+        csprngAlreadySeeded = true;
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 EVP_PKEY* generateEvpPkey()
 {
@@ -91,9 +104,10 @@ EVP_PKEY* generateEvpPkey()
     bail(nullptr != evpPkeyCtx, "EVP_PKEY_CTX_new_id");
 
     bail(EVP_PKEY_keygen_init(evpPkeyCtx), "EVP_PKEY_keygen_init");
-    bail(EVP_PKEY_CTX_set_ec_paramgen_curve_nid(evpPkeyCtx, NID_brainpoolP256r1), "EVP_PKEY_CTX_set_ec_paramgen_curve_nid");
+    bail(EVP_PKEY_CTX_set_ec_paramgen_curve_nid(evpPkeyCtx, NID_brainpoolP256r1),
+         "EVP_PKEY_CTX_set_ec_paramgen_curve_nid");
 
-	bail(CSPRNG_SEED_LENGTH == RAND_load_file("/dev/random", CSPRNG_SEED_LENGTH), "RAND_load_file");
+    seedCsprng();
 
     EVP_PKEY* evpPkey{};
     bail(EVP_PKEY_keygen(evpPkeyCtx, &evpPkey), "EVP_PKEY_keygen");
@@ -104,9 +118,9 @@ EVP_PKEY* generateEvpPkey()
     return evpPkey;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Buffer deriveFromPassphrase(const std::string& passphrase, const Buffer& saltData)
+Buffer deriveFromPassPhrase(const std::string& passPhrase, const Buffer& saltData)
 {
     auto evpPkeyContext = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr);
     bail(nullptr != evpPkeyContext, "EVP_PKEY_CTX_new_id");
@@ -119,7 +133,8 @@ Buffer deriveFromPassphrase(const std::string& passphrase, const Buffer& saltDat
 
     bail(EVP_PKEY_CTX_set_hkdf_md(evpPkeyContext, evpMdSha3), "EVP_PKEY_CTX_set_hkdf_md");
     bail(EVP_PKEY_CTX_set1_hkdf_salt(evpPkeyContext, saltData.data(), saltData.size()), "EVP_PKEY_CTX_set1_hkdf_salt");
-    bail(EVP_PKEY_CTX_set1_hkdf_key(evpPkeyContext, passphrase.c_str(), passphrase.size()), "EVP_PKEY_CTX_set1_hkdf_key");
+    bail(EVP_PKEY_CTX_set1_hkdf_key(evpPkeyContext, passPhrase.c_str(), passPhrase.size()),
+         "EVP_PKEY_CTX_set1_hkdf_key");
 
     Buffer derivationResult(CHACHA20_KEY_SIZE + CHACHA20_IV_SIZE);
     bail(derivationResult.size() <= EVP_MD_size(evpMdSha3), "wrong derivationResult size");
@@ -133,7 +148,7 @@ Buffer deriveFromPassphrase(const std::string& passphrase, const Buffer& saltDat
     return derivationResult;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Buffer getHashableDataFromEvpPkey(EVP_PKEY* evpPkey)
 {
@@ -142,7 +157,9 @@ Buffer getHashableDataFromEvpPkey(EVP_PKEY* evpPkey)
 
 	Buffer keyMetadata(sizeof(evpPkeyEcIdentifier) + sizeof(nidBrainpoolp256r1Identifier));
 	std::memcpy(keyMetadata.data(), &evpPkeyEcIdentifier, sizeof(evpPkeyEcIdentifier));
-	std::memcpy(keyMetadata.data() + sizeof(evpPkeyEcIdentifier), &nidBrainpoolp256r1Identifier, sizeof(nidBrainpoolp256r1Identifier));
+	std::memcpy(keyMetadata.data() + sizeof(evpPkeyEcIdentifier),
+	            &nidBrainpoolp256r1Identifier,
+	            sizeof(nidBrainpoolp256r1Identifier));
 
 	auto privateKeyBuffer = getPrivateKeyBuffer(evpPkey);
 	keyMetadata.insert(keyMetadata.end(), privateKeyBuffer.cbegin(), privateKeyBuffer.cend());
@@ -150,7 +167,7 @@ Buffer getHashableDataFromEvpPkey(EVP_PKEY* evpPkey)
 	return keyMetadata;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Buffer computeKeyHandle(EVP_PKEY* evpPkey)
 {
@@ -180,7 +197,7 @@ Buffer computeKeyHandle(EVP_PKEY* evpPkey)
 	;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 BIO* constructFileBio(const std::string& fileName, const std::string& openMode)
@@ -198,10 +215,10 @@ BIO* constructFileBio(const std::string& fileName, const std::string& openMode)
    	return fileBio;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-BIO* constructCipherBio(const Buffer& keyHandle, const std::string passphrase, int isEncryption)
+BIO* constructCipherBio(const Buffer& keyHandle, const std::string passPhrase, int isEncryption)
 {
    	auto cipherBioMethod = BIO_f_cipher();
     bail(nullptr != cipherBioMethod, "BIO_f_cipher");
@@ -212,27 +229,29 @@ BIO* constructCipherBio(const Buffer& keyHandle, const std::string passphrase, i
    	auto evpCipherChacha20Poly1305 = EVP_chacha20_poly1305();
    	bail(nullptr != evpCipherChacha20Poly1305, "EVP_chacha20_poly1305");
 
-   	auto derivation = deriveFromPassphrase(passphrase, keyHandle);
+   	auto derivation = deriveFromPassPhrase(passPhrase, keyHandle);
    	auto key = Buffer(derivation.cbegin(), derivation.cbegin() + CHACHA20_KEY_SIZE);
-   	bail(CHACHA20_KEY_SIZE == key.size(), "deriveFromPassphrase");
+   	bail(CHACHA20_KEY_SIZE == key.size(), "deriveFromPassPhrase");
    	auto iv = Buffer(derivation.cbegin() + CHACHA20_KEY_SIZE, derivation.cend());
-   	bail(CHACHA20_IV_SIZE == iv.size(), "deriveFromPassphrase");
+   	bail(CHACHA20_IV_SIZE == iv.size(), "deriveFromPassPhrase");
 
    	bail(BIO_set_cipher(cipherBio, evpCipherChacha20Poly1305, key.data(), iv.data(), isEncryption), "bio_set_cipher");
 
    	return cipherBio;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void setAdditionalAuthenticatedData(EVP_CIPHER_CTX* evpCipherCtx, const Buffer& keyHandle)
 {
 	int aadBytesWritten{};
-   	bail(EVP_CipherUpdate(evpCipherCtx, nullptr, &aadBytesWritten, keyHandle.data(), keyHandle.size()), "EVP_CipherUpdate");
+   	bail(EVP_CipherUpdate(evpCipherCtx, nullptr, &aadBytesWritten, keyHandle.data(), keyHandle.size()),
+   	     "EVP_CipherUpdate");
+
    	bail(keyHandle.size() == aadBytesWritten, "EVP_CipherUpdate");
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void triggerCipherFinal(EVP_CIPHER_CTX* evpCipherCtx)
 {
@@ -242,24 +261,29 @@ void triggerCipherFinal(EVP_CIPHER_CTX* evpCipherCtx)
    	bail(0 == outBuffWritten, "EVP_CipherFinal");
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Buffer getAuthenticationTag(EVP_CIPHER_CTX* evpCipherCtx)
 {
    	Buffer authenticationTag(CHACHA20_AUTHN_TAG_SIZE);
-   	bail(EVP_CIPHER_CTX_ctrl(evpCipherCtx, EVP_CTRL_AEAD_GET_TAG, authenticationTag.size(), authenticationTag.data()), "EVP_CIPHER_CTX_ctrl");
+   	bail(EVP_CIPHER_CTX_ctrl(evpCipherCtx,
+   	                         EVP_CTRL_AEAD_GET_TAG,
+   	                         authenticationTag.size(),
+   	                         authenticationTag.data()),
+   	     "EVP_CIPHER_CTX_ctrl");
 
    	return authenticationTag;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void setAuthenticationTag(EVP_CIPHER_CTX* evpCipherCtx, Buffer& authenticationTag)
 {
-	bail(EVP_CIPHER_CTX_ctrl(evpCipherCtx, EVP_CTRL_AEAD_SET_TAG, authenticationTag.size(), authenticationTag.data()), "EVP_CIPHER_CTX_ctrl");
+	bail(EVP_CIPHER_CTX_ctrl(evpCipherCtx, EVP_CTRL_AEAD_SET_TAG, authenticationTag.size(), authenticationTag.data()),
+	     "EVP_CIPHER_CTX_ctrl");
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 EVP_CIPHER_CTX* getCipherCtxFromCipherBio(BIO* cipherBio)
 {
@@ -270,15 +294,15 @@ EVP_CIPHER_CTX* getCipherCtxFromCipherBio(BIO* cipherBio)
     return evpCipherCtx;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Buffer writeEvpPkey(EVP_PKEY* evpPkey, const std::string& passphrase)
+Buffer writeEvpPkey(EVP_PKEY* evpPkey, const std::string& passPhrase)
 {
 	auto keyHandle = computeKeyHandle(evpPkey);
    	bail(KEY_HANDLE_SIZE == keyHandle.size(), "computeKeyHandle");
 
    	auto fileBio = constructFileBio(getFilenameFromKeyHandle(keyHandle), "wb");
-   	auto cipherBio = constructCipherBio(keyHandle, passphrase, 1);
+   	auto cipherBio = constructCipherBio(keyHandle, passPhrase, 1);
 
    	auto evpCipherCtx = getCipherCtxFromCipherBio(cipherBio);
     setAdditionalAuthenticatedData(evpCipherCtx, keyHandle);
@@ -289,28 +313,36 @@ Buffer writeEvpPkey(EVP_PKEY* evpPkey, const std::string& passphrase)
 	bail(nullptr != evpCipherAes256Cbc, "EVP_aes_256_cbc");
 
 	bail(0 == BIO_seek(fileBio, CHACHA20_AUTHN_TAG_SIZE), "BIO_seek");
-	bail(i2d_PKCS8PrivateKey_bio(cipherBio, evpPkey, evpCipherAes256Cbc, passphrase.c_str(), passphrase.size(), nullptr, nullptr), "i2d_PKCS8PrivateKey_bio");
+	bail(i2d_PKCS8PrivateKey_bio(cipherBio,
+	                             evpPkey,
+	                             evpCipherAes256Cbc,
+	                             passPhrase.c_str(),
+	                             passPhrase.size(),
+	                             nullptr,
+	                             nullptr),
+	     "i2d_PKCS8PrivateKey_bio");
 
 	triggerCipherFinal(evpCipherCtx);
    	auto authenticationTag = getAuthenticationTag(evpCipherCtx);
 
    	bail(0 == BIO_seek(fileBio, 0), "BIO_seek");
-   	bail(authenticationTag.size() == BIO_write(fileBio, authenticationTag.data(), authenticationTag.size()), "BIO_write");
+   	bail(authenticationTag.size() == BIO_write(fileBio, authenticationTag.data(), authenticationTag.size()),
+   	     "BIO_write");
 
 	BIO_free_all(cipherBio);
 
 	return keyHandle;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-EVP_PKEY* readEvpPkey(const Buffer& keyHandle, const std::string& passphrase)
+EVP_PKEY* readEvpPkey(const Buffer& keyHandle, const std::string& passPhrase)
 {
    	bail(KEY_HANDLE_SIZE == keyHandle.size(), "wrong keyHandle size");
 
    	auto fileBio = constructFileBio(getFilenameFromKeyHandle(keyHandle), "rb");
-   	auto cipherBio = constructCipherBio(keyHandle, passphrase, 0);
+   	auto cipherBio = constructCipherBio(keyHandle, passPhrase, 0);
 
     Buffer authenticationTag(CHACHA20_AUTHN_TAG_SIZE);
     bail(authenticationTag.size() == BIO_read(fileBio, authenticationTag.data(), authenticationTag.size()), "BIO_read");
@@ -324,13 +356,13 @@ EVP_PKEY* readEvpPkey(const Buffer& keyHandle, const std::string& passphrase)
    	EVP_PKEY* keyResult{};
 	bail(nullptr != d2i_PKCS8PrivateKey_bio(cipherBio,
 		                     			    &keyResult,
-		                         			[](char *buf, int size, int rwflag, void *u) -> int
+		                         			[](char* outputBuffer, int outputBufferLength, int, void* userData) -> int
 		                         			{
-		                         				auto passphrase = *reinterpret_cast<const std::string*>(u);
-		                         				std::strncpy(buf, passphrase.c_str(), size);
-		                         				return passphrase.size();
+		                         				auto passPhrase = *reinterpret_cast<const std::string*>(userData);
+		                         				std::strncpy(outputBuffer, passPhrase.c_str(), outputBufferLength);
+		                         				return passPhrase.size();
 		                         			},
-		                         			&const_cast<std::string&>(passphrase)),
+		                         			&const_cast<std::string&>(passPhrase)),
 	     "d2i_PKCS8PrivateKey_bio");
 
 	triggerCipherFinal(evpCipherCtx);
@@ -340,7 +372,7 @@ EVP_PKEY* readEvpPkey(const Buffer& keyHandle, const std::string& passphrase)
 	return keyResult;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 EVP_MD_CTX* constructSha3EvpMd(EVP_PKEY* evpPkey, int isSigning)
 {
@@ -353,12 +385,13 @@ EVP_MD_CTX* constructSha3EvpMd(EVP_PKEY* evpPkey, int isSigning)
 	bail(nullptr != evpMdSha3, "EVP_sha3_256");
 
 	auto digestInitFunction = isSigning ? EVP_DigestSignInit : EVP_DigestVerifyInit;
-	bail(digestInitFunction(evpMdCtx, nullptr, evpMdSha3, nullptr, evpPkey), isSigning ? "EVP_DigestSignInit" : "EVP_DigestVerifyInit");
+	bail(digestInitFunction(evpMdCtx, nullptr, evpMdSha3, nullptr, evpPkey),
+	     isSigning ? "EVP_DigestSignInit" : "EVP_DigestVerifyInit");
 
 	return evpMdCtx;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Buffer signMessage(const Buffer& message, EVP_PKEY* evpPkey)
 {
@@ -369,7 +402,9 @@ Buffer signMessage(const Buffer& message, EVP_PKEY* evpPkey)
 	bail(0 < signatureLength, "EVP_DigestSign");
 
 	Buffer signatureResult(signatureLength);
-	bail(EVP_DigestSign(evpMdCtx, signatureResult.data(), &signatureLength, message.data(), message.size()), "EVP_DigestSign");
+	bail(EVP_DigestSign(evpMdCtx, signatureResult.data(), &signatureLength, message.data(), message.size()),
+	     "EVP_DigestSign");
+
 	signatureResult.resize(signatureLength);
 
 	EVP_MD_CTX_free(evpMdCtx);
@@ -377,7 +412,7 @@ Buffer signMessage(const Buffer& message, EVP_PKEY* evpPkey)
 	return signatureResult;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool verifySignature(const Buffer& message, const Buffer& signature, EVP_PKEY* evpPkey)
 {
@@ -391,23 +426,23 @@ bool verifySignature(const Buffer& message, const Buffer& signature, EVP_PKEY* e
 	return verifyResult;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main()
 {
 	auto evpPkey = generateEvpPkey();
 	std::cout << "\n\nKey generated = " << getHexaFromBuffer(getPrivateKeyBuffer(evpPkey));
 
-	auto messageToBeSigned = std::string{"This message is to be signed with ECDSA using the elliptic curve brainpoolP256r1"};
+	auto messageToBeSigned = std::string{"Message to be signed with ECDSA using the elliptic curve brainpoolP256r1"};
 	auto messageBuffer = Buffer{messageToBeSigned.cbegin(), messageToBeSigned.cend()};
 
 	auto signature = signMessage(messageBuffer, evpPkey);
 	std::cout << "\n\nSignature computed = " << getHexaFromBuffer(signature);
 
-	auto keyHandle = writeEvpPkey(evpPkey, "myVerySecretPassphrase");
+	auto keyHandle = writeEvpPkey(evpPkey, "myVerySecretPassPhrase");
 	std::cout << "\n\nKey written successfully, handle = " << getHexaFromBuffer(keyHandle);
 
-	evpPkey = readEvpPkey(keyHandle, "myVerySecretPassphrase");
+	evpPkey = readEvpPkey(keyHandle, "myVerySecretPassPhrase");
 	std::cout << "\n\nKey read back successfully, key = " << getHexaFromBuffer(getPrivateKeyBuffer(evpPkey));
 
 	auto verifyResult = verifySignature(messageBuffer, signature, evpPkey);
@@ -416,4 +451,4 @@ int main()
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
