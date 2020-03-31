@@ -182,8 +182,6 @@ EVP_PKEY* generateEvpPkey()
     throwIfUnexpected(EVP_PKEY_CTX_set_ec_paramgen_curve_nid(evpPkeyCtx.get(), NID_brainpoolP256r1),
                       "EVP_PKEY_CTX_set_ec_paramgen_curve_nid");
 
-    throwIfUnexpected(CSPRNG_SEED_LENGTH == RAND_load_file(CSPRNG_SEED_DEVICE, CSPRNG_SEED_LENGTH), "RAND_load_file");
-
     EVP_PKEY* evpPkey{};
     throwIfUnexpected(EVP_PKEY_keygen(evpPkeyCtx.get(), &evpPkey), "EVP_PKEY_keygen");
     throwIfUnexpected(nullptr != evpPkey, "EVP_PKEY_keygen");
