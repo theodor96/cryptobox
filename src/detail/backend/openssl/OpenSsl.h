@@ -11,6 +11,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,12 +66,19 @@ std::string getFilenameFromKeyHandle(const Buffer& keyHandle)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Buffer getPrivateKeyBuffer(EVP_PKEY* evpPkey)
+EC_KEY* getEcKeyFromEvpPkey(EVP_PKEY* evpPkey)
 {
     auto ecKey = EVP_PKEY_get0_EC_KEY(evpPkey);
     bail(nullptr != ecKey, "EVP_PKEY_get0_EC_KEY");
 
-    auto privateKeyBn = EC_KEY_get0_private_key(ecKey);
+    return ecKey;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Buffer getPrivateKeyBuffer(EVP_PKEY* evpPkey)
+{
+    auto privateKeyBn = EC_KEY_get0_private_key(getEcKeyFromEvpPkey(evpPkey));
     bail(nullptr != privateKeyBn, "EC_KEY_get0_private_key");
 
     auto privateKeyBnSize = BN_num_bytes(privateKeyBn);
@@ -80,6 +88,36 @@ Buffer getPrivateKeyBuffer(EVP_PKEY* evpPkey)
     bail(privateKeyBuffer.size() == BN_bn2bin(privateKeyBn, privateKeyBuffer.data()), "BN_bn2bin");
 
     return privateKeyBuffer;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Buffer getPublicKeyBuffer(EVP_PKEY* evpPkey)
+{
+    auto ecKey = getEcKeyFromEvpPkey(evpPkey);
+    auto publicKey = EC_KEY_get0_public_key(ecKey);
+    bail(nullptr != publicKey, "EC_KEY_get0_public_key");
+
+    auto xCoordBn = BN_new();
+    bail(nullptr != xCoordBn, "BN_new");
+
+    auto yCoordBn = BN_new();
+    bail(nullptr != yCoordBn, "BN_new");
+
+    bail(EC_POINT_get_affine_coordinates(EC_KEY_get0_group(ecKey), publicKey, xCoordBn, yCoordBn, nullptr),
+         "EC_POINT_get_affine_coordinates");
+
+    Buffer xCoordBuffer(EC_BRAINPOOLP256R1_KEY_SIZE);
+    bail(xCoordBuffer.size() == BN_bn2binpad(xCoordBn, xCoordBuffer.data(), xCoordBuffer.size()), "BN_bn2binpad");
+
+    Buffer yCoordBuffer(EC_BRAINPOOLP256R1_KEY_SIZE);
+    bail(xCoordBuffer.size() == BN_bn2binpad(yCoordBn, yCoordBuffer.data(), yCoordBuffer.size()), "BN_bn2binpad");
+
+    BN_free(xCoordBn);
+    BN_free(yCoordBn);
+
+    xCoordBuffer.insert(xCoordBuffer.end(), yCoordBuffer.cbegin(), yCoordBuffer.cend());
+    return xCoordBuffer;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -277,7 +315,7 @@ EVP_CIPHER_CTX* getCipherCtxFromCipherBio(BIO* cipherBio)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Buffer writeEvpPkey(EVP_PKEY* evpPkey, const std::string& passphrase)
+std::tuple<std::string, Buffer> writeEvpPkey(EVP_PKEY* evpPkey, const std::string& passphrase)
 {
     auto keyHandle = computeKeyHandle(evpPkey);
     bail(KEY_HANDLE_SIZE == keyHandle.size(), "computeKeyHandle");
@@ -312,7 +350,7 @@ Buffer writeEvpPkey(EVP_PKEY* evpPkey, const std::string& passphrase)
 
     BIO_free_all(cipherBio);
 
-    return keyHandle;
+    return std::make_tuple(getHexaFromBuffer(keyHandle), getPublicKeyBuffer(evpPkey));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

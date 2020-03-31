@@ -39,7 +39,7 @@ namespace cryptobox
         buffer.reserve(hex.length() / 2);
         std::copy(hex.cbegin(), hex.cend(), detail::getHexIterator(std::back_inserter(buffer)));
 
-        return Buffer{buffer};
+        return createFromInternalBuffer(buffer);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -47,6 +47,13 @@ namespace cryptobox
     Buffer Buffer::createFromRawBuffer(const unsigned char* rawBuffer, std::size_t rawBufferSize)
     {
         return Buffer{InternalBuffer{rawBuffer, rawBuffer + rawBufferSize}};
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    Buffer Buffer::createFromInternalBuffer(const InternalBuffer& buffer)
+    {
+        return Buffer{buffer};
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -97,6 +104,13 @@ namespace cryptobox
     void Buffer::append(const Buffer& rhs)
     {
         r_buffer.insert(r_buffer.end(), rhs.r_buffer.cbegin(), rhs.r_buffer.cend());
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    const Buffer::InternalBuffer& Buffer::getInternalBuffer() const
+    {
+        return r_buffer;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,8 +1,4 @@
-#include "Buffer.h"
-#include "KeyHandle.h"
-#include "Message.h"
-#include "Operations.h"
-#include "Signature.h"
+#include "All.h"
 
 #include <iostream>
 #include <memory>
@@ -35,13 +31,13 @@ public:
             auto keyHandle = cryptobox::operations::generateKey(KEY_PASSPHRASE + std::to_string(itr));
             std::cout << "\n\ntestBulk: cryptobox generated key with name = "
                       << keyHandle->getName()
-                      << ", passphrase = "
+                      << "\n                             and passphrase = "
                       << keyHandle->getPassphrase();
 
             auto signature = cryptobox::operations::signMessage(r_message, keyHandle);
             std::cout << "\n\ntestBulk: cryptobox produced signature = "
                       << signature->getBuffer().toHex()
-                      << ", for message = "
+                      << "\n                           for message = "
                       << r_message->getBuffer().toHex();
 
             auto isSignatureValid = cryptobox::operations::verifySignature(signature, r_message, keyHandle);
@@ -81,7 +77,7 @@ int main()
     cryptoboxClient.testBulk();
     cryptoboxClient.testSpecifics();
 
-    std::cout << "\n" << std::endl;
+    std::cout << "\n\n" << std::flush;
 
     return 0;
 }
