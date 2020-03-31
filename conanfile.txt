@@ -2,7 +2,7 @@
 cmake
 
 [requires]
-openssl/1.1.1d
+openssl/1.1.1e
 
 [options]
 OpenSSL:shared=True

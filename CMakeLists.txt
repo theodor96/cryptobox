@@ -2,6 +2,15 @@ cmake_minimum_required(VERSION 3.10)
 
 project(cryptobox LANGUAGES CXX)
 
+if(NOT EXISTS "build/conanbuildinfo.cmake")
+    execute_process(COMMAND
+                    conan install . --build missing --install-folder "build"
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
+endif()
+
+include(build/conanbuildinfo.cmake)
+conan_basic_setup()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -31,4 +40,4 @@ target_include_directories(cryptobox-client
                            ${CONAN_INCLUDE_DIRS_OPENSSL})
 
 target_link_libraries(cryptobox-client
-                      ${CONAN_LIB_DIRS_OPENSSL})
+                      ${CONAN_LIBS_OPENSSL})
