@@ -29,3 +29,7 @@ Features todo:
 Code todo:
 - C++ify the `OpenSSL` backend. Progress was made in that direction but a whole lot of splitting into several classes/files/functionalities can be done at that level.
 - Unit testing
+
+Documentation todo:
+- write API documentation
+- design decisions
