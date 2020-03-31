@@ -1,17 +1,29 @@
 #include "All.h"
 
 #include <iostream>
+#include <exception>
 #include <memory>
 #include <string>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-constexpr int BULK_ITERATIONS_COUNT = 3;
-constexpr const char* KEY_PASSPHRASE = "my very secret passphrase";
-constexpr const char* MESSAGE_TO_SIGN = "some message I intend to sign with ECDSA via brainpoolp256r1";
-constexpr const char* SPECIFIC_PUBLIC_KEY_HEX = "076749c95e492622aa8999356058466837909468a1b8a938c54f393a29d7d55f7247689f63cdf79c61d2001f92826642c7021f48cc95da88d2f3582c90ba6a61";
-constexpr const char* SPECIFIC_VALID_SIGNATURE_HEX = "304502203720e535b946c4edb10ce722ddf0fd9d90a95a8dc2447102835a484ced56e740022100a9483697cd1abe3b89f5ff133fe7db98dc85d38c5715002245200430ddb3952a";
-constexpr const char* SPECIFIC_INVALID_SIGNATURE_HEX = "304502203720e535b946c4edb10ce722ddf0fd9d90a95a8dc2447102835a484ced56e740022100a9483697cd1abe3b89f5ff133fe7db98dc85d38c5715002245200430ddb3952b";
+namespace
+{
+    constexpr int BULK_ITERATIONS_COUNT = 3;
+    constexpr const char* KEY_PASSPHRASE = "my very secret passphrase";
+    constexpr const char* MESSAGE_TO_SIGN = "some message to be signed with ECDSA via brainpoolp256r1";
+
+    constexpr const char* SPECIFIC_PUBLIC_KEY_HEX = "5eee58f650e1c834be271c7311ff36200ce4ec990fc5158089b93e994861c1c29d"
+                                                    "92a0ee458d85cef0f48f77cb669dbe2bc6cf4aa358bcdcadeed7135adc3a19";
+
+    constexpr const char* SPECIFIC_VALID_SIGNATURE_HEX = "304402202d8cf06b2d06ad6db495e92def8af3311a58d94d3ab24ead49be8"
+                                                         "428385cb8d20220173ba3b9832796ff40914b538803f719d67812705ad847"
+                                                         "e379321ff5194b035f";
+
+    constexpr const char* SPECIFIC_INVALID_SIGNATURE_HEX = "304402202d8cf06b2d06ad6db495e92def8af3311a58d94d3ab24ead49b"
+                                                           "e8428385cb8d20220173ba3b9832796ff40914b538803f719d67812705a"
+                                                           "d847e379321ff5194b035e"; // last digit changed
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

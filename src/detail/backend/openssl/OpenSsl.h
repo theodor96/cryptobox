@@ -8,9 +8,9 @@
 #include <cstdio>
 #include <cstring>
 #include <iomanip>
-#include <iostream>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -480,7 +480,11 @@ Buffer signMessage(const Buffer& message, EVP_PKEY* evpPkey)
     throwIfUnexpected(0 < signatureLength, "EVP_DigestSign");
 
     Buffer signatureResult(signatureLength);
-    throwIfUnexpected(EVP_DigestSign(evpMdCtx.get(), signatureResult.data(), &signatureLength, message.data(), message.size()),
+    throwIfUnexpected(EVP_DigestSign(evpMdCtx.get(),
+                                     signatureResult.data(),
+                                     &signatureLength,
+                                     message.data(),
+                                     message.size()),
                       "EVP_DigestSign");
     signatureResult.resize(signatureLength);
 
