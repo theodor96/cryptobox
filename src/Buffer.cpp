@@ -39,7 +39,7 @@ namespace cryptobox
         buffer.reserve(hex.length() / 2);
         std::copy(hex.cbegin(), hex.cend(), detail::getHexIterator(std::back_inserter(buffer)));
 
-        return buffer;
+        return Buffer{buffer};
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

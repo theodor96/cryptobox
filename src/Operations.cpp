@@ -4,42 +4,40 @@
 #include "KeyHandle.h"
 #include "Message.h"
 #include "Signature.h"
-
-#include "OpenSsl.h"
-#include <iostream>
+#include "detail/backend/openssl/OpenSsl.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace cryptobox
+namespace cryptobox::operations
 {
-    namespace operations
+    KeyHandlePtr generateKey(const std::string& passphrase)
     {
-        KeyHandlePtr generateKey(const std::string& passphrase)
-        {
-            return std::make_unique<KeyHandle>(getHexaFromBuffer(writeEvpPkey(generateEvpPkey(), passphrase)),
-                                               passphrase);
-        }
+        return std::make_unique<KeyHandle>(getHexaFromBuffer(writeEvpPkey(generateEvpPkey(), passphrase)), passphrase);
+    }
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        SignaturePtr signMessage(const MessagePtr& message, const KeyHandlePtr& keyHandle)
-        {
-            //return std::make_unique<Signature>(Buffer::createFromHex("abcdef010203040506070809"));
+    SignaturePtr signMessage(const MessagePtr& message, const KeyHandlePtr& keyHandle)
+    {
+        auto buffer = Buffer::createFromHex(keyHandle->getName());
+        auto signature = signMessage(::Buffer{message->getBuffer().getRawBuffer(),
+                                              message->getBuffer().getRawBuffer() + message->getBuffer().getSize()},
+                                     readEvpPkey(::Buffer{buffer.getRawBuffer(),
+                                                          buffer.getRawBuffer() + buffer.getSize()},
+                                     keyHandle->getPassphrase()));
 
+        return std::make_unique<Signature>(Buffer::createFromRawBuffer(signature.data(), signature.size()));
 
-            auto xx = Buffer::createFromHex(keyHandle->getName());
-            auto signature = signMessage(messageBuffer, readEvpPkey(::Buffer{xx.cbegin(), xx.cend()}, keyHandle->getPassphrase()));
-            std::cout << "\n\nSignature computed = " << getHexaFromBuffer(signature);
+    }
 
-        }
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    bool verifySignature(const SignaturePtr& signature, const MessagePtr& message, const KeyHandlePtr& keyHandle)
+    {
+        evpPkey = readEvpPkey(keyHandle, "myVerySecretPassphrase");
+        std::cout << "\n\nKey read back successfully, key = " << getHexaFromBuffer(getPrivateKeyBuffer(evpPkey));
 
-        bool verifySignature(const SignaturePtr& signature,
-                             const MessagePtr& message,
-                             const KeyHandlePtr& keyHandle)
-        {
-            return false;
-        }
+        auto verifyResult = verifySignature(messageBuffer, signature, evpPkey);
+        std::cout << "\n\nSignature verification result = " << verifyResult << "\n\n\n" << std::flush;
     }
 }

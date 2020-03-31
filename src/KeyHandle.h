@@ -22,6 +22,8 @@ namespace cryptobox
 
         const std::string& getPassphrase() const;
 
+        void setPublicKey(Buffer publicKey);
+
     private:
         std::string r_name;
         std::string r_passphrase;

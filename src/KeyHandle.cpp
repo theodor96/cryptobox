@@ -37,4 +37,11 @@ namespace cryptobox
     {
         return r_passphrase;
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void KeyHandle::setPublicKey(Buffer publicKey)
+    {
+        r_publicKey = std::move(publicKey);
+    }
 }
