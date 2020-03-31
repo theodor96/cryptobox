@@ -1,12 +1,17 @@
+#ifndef CRYPTOBOX_SRC_DETAIL_BACKEND_OPENSSL_OPENSSL_H
+#define CRYPTOBOX_SRC_DETAIL_BACKEND_OPENSSL_OPENSSL_H
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#include "Buffer.h"
+#include "KeyHandle.h"
+#include "Types.h"
 
 #include <openssl/ec.h>
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
 #include <openssl/pem.h>
 #include <openssl/rand.h>
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <cstddef>
 #include <cstdio>
@@ -19,17 +24,11 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-using Buffer = std::vector<unsigned char>;
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 constexpr int CHACHA20_AUTHN_TAG_SIZE = 16;
 constexpr int CHACHA20_IV_SIZE = 12;
 constexpr int CHACHA20_KEY_SIZE = 32;
 constexpr int CSPRNG_SEED_LENGTH = 4096;
 constexpr int EC_BRAINPOOLP256R1_KEY_SIZE = 32;
-constexpr int HEX_BYTE_MINIMUM_WIDTH = 2;
-constexpr int KEY_HANDLE_SIZE = 32;
 constexpr const char* KEY_STORAGE_PATH = "storage/keys";
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -45,29 +44,16 @@ void bail(int status, const std::string& errorMessage)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::string getHexaFromBuffer(const Buffer& data)
-{
-	std::ostringstream stream{};
-	for (const auto& itr : data)
-	{
-		stream << std::hex << std::setfill('0') << std::setw(HEX_BYTE_MINIMUM_WIDTH) << static_cast<int>(itr);
-	}
-
-	return stream.str();
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-std::string getFilenameFromKeyHandle(const Buffer& keyHandle)
+std::string getFilenameFromKeyHandle(const cryptobox::KeyHandlePtr& keyHandle)
 {
 	// i'd love some base64 here but case insensitive filesystems wouldn't love it as much
 
-	return KEY_STORAGE_PATH + std::string{"/"} + getHexaFromBuffer(keyHandle);
+	return KEY_STORAGE_PATH + std::string{"/"} + keyHandle->getName();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Buffer getPrivateKeyBuffer(EVP_PKEY* evpPkey)
+cryptobox::Buffer getPrivateKeyBuffer(EVP_PKEY* evpPkey)
 {
 	auto ecKey = EVP_PKEY_get0_EC_KEY(evpPkey);
 	bail(nullptr != ecKey, "EVP_PKEY_get0_EC_KEY");
@@ -78,8 +64,8 @@ Buffer getPrivateKeyBuffer(EVP_PKEY* evpPkey)
 	auto privateKeyBnSize = BN_num_bytes(privateKeyBn);
 	bail(EC_BRAINPOOLP256R1_KEY_SIZE == privateKeyBnSize, "BN_num_bytes");
 
-	Buffer privateKeyBuffer(privateKeyBnSize);
-	bail(privateKeyBuffer.size() == BN_bn2bin(privateKeyBn, privateKeyBuffer.data()), "BN_bn2bin");
+    cryptobox::Buffer privateKeyBuffer(privateKeyBnSize);
+	bail(privateKeyBuffer.getSize() == BN_bn2bin(privateKeyBn, privateKeyBuffer.getWriteableRawBuffer()), "BN_bn2bin");
 
 	return privateKeyBuffer;
 }
@@ -120,7 +106,7 @@ EVP_PKEY* generateEvpPkey()
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Buffer deriveFromPassPhrase(const std::string& passphrase, const Buffer& saltData)
+cryptobox::Buffer deriveFromPassPhrase(const std::string& passphrase, const cryptobox::Buffer& saltData)
 {
     auto evpPkeyContext = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr);
     bail(nullptr != evpPkeyContext, "EVP_PKEY_CTX_new_id");
@@ -132,16 +118,21 @@ Buffer deriveFromPassPhrase(const std::string& passphrase, const Buffer& saltDat
     bail(nullptr != evpMdSha3, "EVP_sha3_384");
 
     bail(EVP_PKEY_CTX_set_hkdf_md(evpPkeyContext, evpMdSha3), "EVP_PKEY_CTX_set_hkdf_md");
-    bail(EVP_PKEY_CTX_set1_hkdf_salt(evpPkeyContext, saltData.data(), saltData.size()), "EVP_PKEY_CTX_set1_hkdf_salt");
+
+    bail(EVP_PKEY_CTX_set1_hkdf_salt(evpPkeyContext, saltData.getRawBuffer(), saltData.getSize()),
+         "EVP_PKEY_CTX_set1_hkdf_salt");
+
     bail(EVP_PKEY_CTX_set1_hkdf_key(evpPkeyContext, passphrase.c_str(), passphrase.size()),
          "EVP_PKEY_CTX_set1_hkdf_key");
 
-    Buffer derivationResult(CHACHA20_KEY_SIZE + CHACHA20_IV_SIZE);
-    bail(derivationResult.size() <= EVP_MD_size(evpMdSha3), "wrong derivationResult size");
+    cryptobox::Buffer derivationResult(CHACHA20_KEY_SIZE + CHACHA20_IV_SIZE);
+    bail(derivationResult.getSize() <= EVP_MD_size(evpMdSha3), "wrong derivationResult size");
 
-    auto derivationResultLength{derivationResult.size()};
-    bail(EVP_PKEY_derive(evpPkeyContext, derivationResult.data(), &derivationResultLength), "EVP_PKEY_derive");
-    bail(derivationResult.size() == derivationResultLength, "EVP_PKEY_derive");
+    auto derivationResultLength{derivationResult.getSize()};
+    bail(EVP_PKEY_derive(evpPkeyContext, derivationResult.getWriteableRawBuffer(), &derivationResultLength),
+         "EVP_PKEY_derive");
+
+    bail(derivationResult.getSize() == derivationResultLength, "EVP_PKEY_derive");
 
     EVP_PKEY_CTX_free(evpPkeyContext);
 
@@ -150,31 +141,32 @@ Buffer deriveFromPassPhrase(const std::string& passphrase, const Buffer& saltDat
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Buffer getHashableDataFromEvpPkey(EVP_PKEY* evpPkey)
+cryptobox::Buffer getHashableDataFromEvpPkey(EVP_PKEY* evpPkey)
 {
 	auto evpPkeyEcIdentifier = EVP_PKEY_EC;
 	auto nidBrainpoolp256r1Identifier = NID_brainpoolP256r1;
 
-	Buffer keyMetadata(sizeof(evpPkeyEcIdentifier) + sizeof(nidBrainpoolp256r1Identifier));
-	std::memcpy(keyMetadata.data(), &evpPkeyEcIdentifier, sizeof(evpPkeyEcIdentifier));
-	std::memcpy(keyMetadata.data() + sizeof(evpPkeyEcIdentifier),
+    cryptobox::Buffer keyMetadata(sizeof(evpPkeyEcIdentifier) + sizeof(nidBrainpoolp256r1Identifier));
+	std::memcpy(keyMetadata.getWriteableRawBuffer(), &evpPkeyEcIdentifier, sizeof(evpPkeyEcIdentifier));
+	std::memcpy(keyMetadata.getWriteableRawBuffer() + sizeof(evpPkeyEcIdentifier),
 	            &nidBrainpoolp256r1Identifier,
 	            sizeof(nidBrainpoolp256r1Identifier));
 
-	auto privateKeyBuffer = getPrivateKeyBuffer(evpPkey);
-	keyMetadata.insert(keyMetadata.end(), privateKeyBuffer.cbegin(), privateKeyBuffer.cend());
+	keyMetadata.append(getPrivateKeyBuffer(evpPkey));
 
 	return keyMetadata;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Buffer computeKeyHandle(EVP_PKEY* evpPkey)
+cryptobox::Buffer computeKeyHandle(EVP_PKEY* evpPkey)
 {
 	auto evpMdCtx = EVP_MD_CTX_new();
 	bail(nullptr != evpMdCtx, "EVP_MD_CTX_new");
 
-	EVP_MD_CTX_set_flags(evpMdCtx, EVP_MD_CTX_FLAG_ONESHOT | EVP_MD_CTX_FLAG_FINALISE);
+	EVP_MD_CTX_set_flags(evpMdCtx,
+	                     static_cast<unsigned int>(EVP_MD_CTX_FLAG_ONESHOT) |
+	                                                               static_cast<unsigned int>(EVP_MD_CTX_FLAG_FINALISE));
 
 	auto evpMdBlake2 = EVP_blake2s256();
 	bail(nullptr != evpMdBlake2, "EVP_blake2s256");
@@ -182,14 +174,15 @@ Buffer computeKeyHandle(EVP_PKEY* evpPkey)
 	bail(EVP_DigestInit_ex(evpMdCtx, evpMdBlake2, nullptr), "EVP_DigestInit_ex");
 
 	auto keyDataToHash = getHashableDataFromEvpPkey(evpPkey);
-	bail(EVP_DigestUpdate(evpMdCtx, keyDataToHash.data(), keyDataToHash.size()), "EVP_DigestUpdate");
+	bail(EVP_DigestUpdate(evpMdCtx, keyDataToHash.getRawBuffer(), keyDataToHash.getSize()), "EVP_DigestUpdate");
 
-	bail(KEY_HANDLE_SIZE == EVP_MD_size(evpMdBlake2), "EVP_MD_size");
-	Buffer keyHandleResult(KEY_HANDLE_SIZE);
+    cryptobox::Buffer keyHandleResult(EVP_MD_size(evpMdBlake2));
 
 	unsigned int digestBytesWritten{};
-	bail(EVP_DigestFinal_ex(evpMdCtx, keyHandleResult.data(), &digestBytesWritten), "EVP_DigestFinal_ex");
-	bail(keyHandleResult.size() == digestBytesWritten, "EVP_DigestFinal_ex");
+	bail(EVP_DigestFinal_ex(evpMdCtx, keyHandleResult.getWriteableRawBuffer(), &digestBytesWritten),
+	     "EVP_DigestFinal_ex");
+
+	bail(keyHandleResult.getSize() == digestBytesWritten, "EVP_DigestFinal_ex");
 
 	EVP_MD_CTX_free(evpMdCtx);
 
@@ -218,7 +211,7 @@ BIO* constructFileBio(const std::string& fileName, const std::string& openMode)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-BIO* constructCipherBio(const Buffer& keyHandle, const std::string passphrase, int isEncryption)
+BIO* constructCipherBio(const cryptobox::Buffer& keyHandle, const std::string passphrase, int isEncryption)
 {
    	auto cipherBioMethod = BIO_f_cipher();
     bail(nullptr != cipherBioMethod, "BIO_f_cipher");
@@ -379,7 +372,9 @@ EVP_MD_CTX* constructSha3EvpMd(EVP_PKEY* evpPkey, int isSigning)
 	auto evpMdCtx = EVP_MD_CTX_new();
 	bail(nullptr != evpMdCtx, "EVP_MD_CTX_new");
 
-	EVP_MD_CTX_set_flags(evpMdCtx, EVP_MD_CTX_FLAG_ONESHOT | EVP_MD_CTX_FLAG_FINALISE);
+    EVP_MD_CTX_set_flags(evpMdCtx,
+                         static_cast<unsigned int>(EVP_MD_CTX_FLAG_ONESHOT) |
+                                                                   static_cast<unsigned int>(EVP_MD_CTX_FLAG_FINALISE));
 
 	auto evpMdSha3 = EVP_sha3_256();
 	bail(nullptr != evpMdSha3, "EVP_sha3_256");
@@ -454,4 +449,5 @@ int main()
 	return 0;
 }
 */
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#endif
