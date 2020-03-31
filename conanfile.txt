@@ -2,7 +2,11 @@
 cmake
 
 [requires]
-openssl/1.1.1e
+OpenSSL/1.1.1@conan/stable
 
 [options]
 OpenSSL:shared=True
+
+[imports]
+lib, *.dylib* -> ./bin
+lib, *.so* -> ./bin
