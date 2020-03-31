@@ -97,7 +97,8 @@ Buffer getPrivateKeyBuffer(EVP_PKEY* evpPkey)
     throwIfUnexpected(EC_BRAINPOOLP256R1_KEY_SIZE == privateKeyBnSize, "BN_num_bytes");
 
     Buffer privateKeyBuffer(privateKeyBnSize);
-    throwIfUnexpected(privateKeyBuffer.size() == BN_bn2bin(privateKeyBn, privateKeyBuffer.data()), "BN_bn2bin");
+    throwIfUnexpected(static_cast<int>(privateKeyBuffer.size()) == BN_bn2bin(privateKeyBn, privateKeyBuffer.data()),
+    	              "BN_bn2bin");
 
     return privateKeyBuffer;
 }
@@ -124,15 +125,15 @@ Buffer getPublicKeyBuffer(EVP_PKEY* evpPkey)
                       "EC_POINT_get_affine_coordinates");
 
     Buffer xCoordBuffer(EC_BRAINPOOLP256R1_KEY_SIZE);
-    throwIfUnexpected(xCoordBuffer.size() == BN_bn2binpad(xCoordBn.get(),
-                                                          xCoordBuffer.data(),
-                                                          xCoordBuffer.size()),
+    throwIfUnexpected(static_cast<int>(xCoordBuffer.size()) == BN_bn2binpad(xCoordBn.get(),
+                                                                            xCoordBuffer.data(),
+                                                                            xCoordBuffer.size()),
                       "BN_bn2binpad");
 
     Buffer yCoordBuffer(EC_BRAINPOOLP256R1_KEY_SIZE);
-    throwIfUnexpected(xCoordBuffer.size() == BN_bn2binpad(yCoordBn.get(),
-                                                          yCoordBuffer.data(),
-                                                          yCoordBuffer.size()),
+    throwIfUnexpected(static_cast<int>(yCoordBuffer.size()) == BN_bn2binpad(yCoordBn.get(),
+                                                                            yCoordBuffer.data(),
+                                                                            yCoordBuffer.size()),
                       "BN_bn2binpad");
 
     xCoordBuffer.insert(xCoordBuffer.end(), yCoordBuffer.cbegin(), yCoordBuffer.cend());
@@ -143,7 +144,7 @@ Buffer getPublicKeyBuffer(EVP_PKEY* evpPkey)
 
 EvpPkeyPtr getEvpPkeyFromPublicKeyBuffer(const Buffer& publicKey)
 {
-    throwIfUnexpected(2 * EC_BRAINPOOLP256R1_KEY_SIZE == publicKey.size(), "publicKey wrong size");
+    throwIfUnexpected(2 * EC_BRAINPOOLP256R1_KEY_SIZE == publicKey.size(), "wrong publicKey size");
 
     BigNumPtr xCoordBn{BN_new(), BN_free};
     throwIfUnexpected(nullptr != xCoordBn, "BN_new");
@@ -212,7 +213,8 @@ Buffer deriveFromPassphrase(const std::string& passphrase, const Buffer& saltDat
                       "EVP_PKEY_CTX_set1_hkdf_key");
 
     Buffer derivationResult(CHACHA20_KEY_SIZE + CHACHA20_IV_SIZE);
-    throwIfUnexpected(derivationResult.size() <= EVP_MD_size(evpMdSha3), "wrong derivationResult size");
+    throwIfUnexpected(static_cast<int>(derivationResult.size()) <= EVP_MD_size(evpMdSha3),
+    	              "wrong derivationResult size");
 
     auto derivationResultLength{derivationResult.size()};
     throwIfUnexpected(EVP_PKEY_derive(evpPkeyCtx.get(), derivationResult.data(), &derivationResultLength),
@@ -319,7 +321,7 @@ void setAdditionalAuthenticatedData(EVP_CIPHER_CTX* evpCipherCtx, const Buffer& 
     throwIfUnexpected(EVP_CipherUpdate(evpCipherCtx, nullptr, &aadBytesWritten, keyHandle.data(), keyHandle.size()),
                       "EVP_CipherUpdate");
 
-    throwIfUnexpected(keyHandle.size() == aadBytesWritten, "EVP_CipherUpdate");
+    throwIfUnexpected(static_cast<int>(keyHandle.size()) == aadBytesWritten, "EVP_CipherUpdate");
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -400,9 +402,9 @@ std::tuple<std::string, Buffer> writeEvpPkey(EVP_PKEY* evpPkey, const std::strin
     auto authenticationTag = getAuthenticationTag(evpCipherCtx);
 
     throwIfUnexpected(0 == BIO_seek(fileBio.get(), 0), "BIO_seek");
-    throwIfUnexpected(authenticationTag.size() == BIO_write(fileBio.get(),
-                                                            authenticationTag.data(),
-                                                            authenticationTag.size()),
+    throwIfUnexpected(static_cast<int>(authenticationTag.size()) == BIO_write(fileBio.get(),
+                                                                              authenticationTag.data(),
+                                                                              authenticationTag.size()),
                       "BIO_write");
 
     return std::make_tuple(getHexaFromBuffer(keyHandle), getPublicKeyBuffer(evpPkey));
@@ -418,9 +420,9 @@ EVP_PKEY* readEvpPkey(const Buffer& keyHandle, const std::string& passphrase)
     auto cipherBio = constructCipherBio(keyHandle, passphrase, 0);
 
     Buffer authenticationTag(CHACHA20_AUTHN_TAG_SIZE);
-    throwIfUnexpected(authenticationTag.size() == BIO_read(fileBio.get(),
-                                                           authenticationTag.data(),
-                                                           authenticationTag.size()),
+    throwIfUnexpected(static_cast<int>(authenticationTag.size()) == BIO_read(fileBio.get(),
+                                                                             authenticationTag.data(),
+                                                                             authenticationTag.size()),
                       "BIO_read");
 
     auto evpCipherCtx = getCipherCtxFromCipherBio(cipherBio);

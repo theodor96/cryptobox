@@ -19,6 +19,7 @@ namespace cryptobox::operations
         // do not set the public key such that key will be re-read from storage upon signature verification
         //
         // keyHandle->setPublicKey(Buffer::createFromInternalBuffer(publicKey));
+        static_cast<void>(publicKey);
 
         return keyHandle;
     }
