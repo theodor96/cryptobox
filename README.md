@@ -14,7 +14,7 @@ Build instructions:
 - `./configure`
 - `cd build && make && make install && cd ..`
 - `cd bin`
-- `./cryptobox`
+- `./cryptobox-client`
 
 About:
 - offers an API to a cryptographic implementation of 3 basic operations:
