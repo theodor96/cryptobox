@@ -449,21 +449,23 @@ EVP_PKEY* readEvpPkey(const Buffer& keyHandle, const std::string& passphrase)
     return keyResult;
 }
 
+#include <openssl/err.h>
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-EvpMdCtxPtr constructSha3EvpMd(EVP_PKEY* evpPkey, int isSigning)
+EvpMdCtxPtr constructSha2EvpMd(EVP_PKEY* evpPkey, int isSigning)
 {
     EvpMdCtxPtr evpMdCtx{EVP_MD_CTX_new(), EVP_MD_CTX_free};
     throwIfUnexpected(nullptr != evpMdCtx, "EVP_MD_CTX_new");
 
     EVP_MD_CTX_set_flags(evpMdCtx.get(), EVP_MD_CTX_FLAG_ONESHOT | EVP_MD_CTX_FLAG_FINALISE);
 
-    auto evpMdSha3 = EVP_sha3_256();
-    throwIfUnexpected(nullptr != evpMdSha3, "EVP_sha3_256");
+    auto evpMdSha2 = EVP_sha256();
+    throwIfUnexpected(nullptr != evpMdSha2, "EVP_sha256");
 
     auto digestInitFunction = isSigning ? EVP_DigestSignInit : EVP_DigestVerifyInit;
-    throwIfUnexpected(digestInitFunction(evpMdCtx.get(), nullptr, evpMdSha3, nullptr, evpPkey),
-                      isSigning ? "EVP_DigestSignInit" : "EVP_DigestVerifyInit");
+    throwIfUnexpected(digestInitFunction(evpMdCtx.get(), nullptr, evpMdSha2, nullptr, evpPkey),
+                      isSigning ? "EVP_DigestSignInit " : "EVP_DigestVerifyInit");
 
     return evpMdCtx;
 }
@@ -472,7 +474,7 @@ EvpMdCtxPtr constructSha3EvpMd(EVP_PKEY* evpPkey, int isSigning)
 
 Buffer signMessage(const Buffer& message, EVP_PKEY* evpPkey)
 {
-    auto evpMdCtx = constructSha3EvpMd(evpPkey, 1);
+    auto evpMdCtx = constructSha2EvpMd(evpPkey, 1);
 
     std::size_t signatureLength{};
     throwIfUnexpected(EVP_DigestSign(evpMdCtx.get(), nullptr, &signatureLength, message.data(), message.size()),
@@ -495,7 +497,7 @@ Buffer signMessage(const Buffer& message, EVP_PKEY* evpPkey)
 
 bool verifySignature(const Buffer& message, const Buffer& signature, EVP_PKEY* evpPkey)
 {
-    auto evpMdCtx = constructSha3EvpMd(evpPkey, 0);
+    auto evpMdCtx = constructSha2EvpMd(evpPkey, 0);
 
     auto verifyResult = EVP_DigestVerify(evpMdCtx.get(),
                                          signature.data(),
