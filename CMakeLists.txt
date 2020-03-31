@@ -25,8 +25,10 @@ add_executable(cryptobox-client
                src/Signature.h
                src/Types.h)
 
-target_include_directories (cryptobox-client PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(cryptobox-client
+                           PRIVATE
+                           ${CMAKE_SOURCE_DIR}/src
+                           ${CONAN_INCLUDE_DIRS_OPENSSL})
 
-target_include_directories(cryptobox-client PRIVATE /Users/theodorserbana/Desktop/repos/openssl/include)
-
-target_link_libraries(cryptobox-client /Users/theodorserbana/Desktop/repos/openssl/libcrypto.dylib)
+target_link_libraries(cryptobox-client
+                      ${CONAN_LIB_DIRS_OPENSSL})
