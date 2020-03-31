@@ -390,12 +390,12 @@ std::tuple<std::string, Buffer> writeEvpPkey(EVP_PKEY* evpPkey, const std::strin
 
     throwIfUnexpected(0 == BIO_seek(fileBio.get(), CHACHA20_AUTHN_TAG_SIZE), "BIO_seek");
     throwIfUnexpected(i2d_PKCS8PrivateKey_bio(cipherBio.get(),
-                                 evpPkey,
-                                 evpCipherAes256Cbc,
-                                 passphrase.c_str(),
-                                 passphrase.size(),
-                                 nullptr,
-                                 nullptr),
+                                              evpPkey,
+                                              evpCipherAes256Cbc,
+                                              const_cast<char*>(passphrase.c_str()),
+                                              passphrase.size(),
+                                              nullptr,
+                                              nullptr),
                       "i2d_PKCS8PrivateKey_bio");
 
     triggerCipherFinal(evpCipherCtx);
