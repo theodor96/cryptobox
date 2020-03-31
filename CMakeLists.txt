@@ -8,26 +8,24 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_definitions(-Wall)
 
-add_executable(
-                   cryptobox-client
+add_executable(cryptobox-client
+               src/detail/backend/openssl/OpenSsl.h
+               src/detail/HexIterator.h
+               src/All.h
+               src/Buffer.h
+               src/Buffer.cpp
+               src/Client.cpp
+               src/KeyHandle.h
+               src/KeyHandle.cpp
+               src/Message.h
+               src/Message.cpp
+               src/Operations.h
+               src/Operations.cpp
+               src/Signature.cpp
+               src/Signature.h
+               src/Types.h)
 
-                   src/Buffer.h
-                   src/Buffer.cpp
-
-                   src/Client.cpp
-
-                   src/KeyHandle.h
-                   src/KeyHandle.cpp
-
-                   src/Message.h
-                   src/Message.cpp
-
-                   src/Operations.h
-                   src/Operations.cpp
-
-                   src/Signature.cpp
-                   src/Signature.h
-              )
+target_include_directories (cryptobox-client PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 target_include_directories(cryptobox-client PRIVATE /Users/theodorserbana/Desktop/repos/openssl/include)
 
