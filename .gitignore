@@ -1,2 +1,7 @@
 .idea
 build
+conan.lock
+conanbuildinfo.cmake
+conanbuildinfo.txt
+conaninfo.txt
+graph_info.json
