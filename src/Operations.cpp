@@ -35,9 +35,19 @@ namespace cryptobox::operations
 
     bool verifySignature(const SignaturePtr& signature, const MessagePtr& message, const KeyHandlePtr& keyHandle)
     {
+        if (keyHandle->hasPublicKey())
+        {
+            auto publicKey = getEvpPkeyFromPublicKeyBuffer(keyHandle->getPublicKey().getInternalBuffer());
+
+            return verifySignature(message->getBuffer().getInternalBuffer(),
+                                   signature->getBuffer().getInternalBuffer(),
+                                   publicKey.get());
+        }
+
         return verifySignature(message->getBuffer().getInternalBuffer(),
                                signature->getBuffer().getInternalBuffer(),
                                readEvpPkey(Buffer::createFromHex(keyHandle->getName()).getInternalBuffer(),
                                            keyHandle->getPassphrase()));
+
     }
 }

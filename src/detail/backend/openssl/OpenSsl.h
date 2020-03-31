@@ -36,6 +36,7 @@ namespace
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     using BigNumPtr = std::unique_ptr<BIGNUM, decltype(&BN_free)>;
+    using EvpPkeyPtr = std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)>;
     using EvpPkeyCtxPtr = std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)>;
     using EvpMdCtxPtr = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>;
     using BioPtr = std::unique_ptr<BIO, decltype(&BIO_free)>;
@@ -136,6 +137,38 @@ Buffer getPublicKeyBuffer(EVP_PKEY* evpPkey)
 
     xCoordBuffer.insert(xCoordBuffer.end(), yCoordBuffer.cbegin(), yCoordBuffer.cend());
     return xCoordBuffer;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+EvpPkeyPtr getEvpPkeyFromPublicKeyBuffer(const Buffer& publicKey)
+{
+    throwIfUnexpected(2 * EC_BRAINPOOLP256R1_KEY_SIZE == publicKey.size(), "publicKey wrong size");
+
+    BigNumPtr xCoordBn{BN_new(), BN_free};
+    throwIfUnexpected(nullptr != xCoordBn, "BN_new");
+
+    Buffer xCoordBuffer{publicKey.cbegin(), publicKey.cbegin() + EC_BRAINPOOLP256R1_KEY_SIZE};
+    throwIfUnexpected(xCoordBn.get() == BN_bin2bn(xCoordBuffer.data(), xCoordBuffer.size(), xCoordBn.get()),
+                      "BN_bin2bn");
+
+    BigNumPtr yCoordBn{BN_new(), BN_free};
+    throwIfUnexpected(nullptr != yCoordBn, "BN_new");
+
+    Buffer yCoordBuffer{publicKey.cbegin() + EC_BRAINPOOLP256R1_KEY_SIZE, publicKey.cend()};
+    throwIfUnexpected(yCoordBn.get() == BN_bin2bn(yCoordBuffer.data(), yCoordBuffer.size(), yCoordBn.get()),
+                      "BN_bin2bn");
+
+    auto ecKey = EC_KEY_new_by_curve_name(NID_brainpoolP256r1);
+    throwIfUnexpected(nullptr != ecKey, "EC_KEY_new_by_curve_name");
+    throwIfUnexpected(EC_KEY_set_public_key_affine_coordinates(ecKey, xCoordBn.get(), yCoordBn.get()),
+                      "EC_KEY_set_public_key_affine_coordinates");
+
+    EvpPkeyPtr evpPkey{EVP_PKEY_new(), EVP_PKEY_free};
+    throwIfUnexpected(nullptr != evpPkey, "EVP_PKEY_new");
+    throwIfUnexpected(EVP_PKEY_assign_EC_KEY(evpPkey.get(), ecKey), "EVP_PKEY_assign_EC_KEY");
+
+    return evpPkey;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -22,7 +22,11 @@ namespace cryptobox
 
         const std::string& getPassphrase() const;
 
+        const Buffer& getPublicKey() const;
+
         void setPublicKey(Buffer publicKey);
+
+        bool hasPublicKey() const;
 
     private:
         std::string r_name;
