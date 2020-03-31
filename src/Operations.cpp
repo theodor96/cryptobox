@@ -5,6 +5,9 @@
 #include "Message.h"
 #include "Signature.h"
 
+#include "OpenSsl.h"
+#include <iostream>
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace cryptobox
@@ -13,15 +16,21 @@ namespace cryptobox
     {
         KeyHandlePtr generateKey(const std::string& passphrase)
         {
-            std::string keyName{"someNiceKeyName"};
-            return std::make_unique<KeyHandle>(keyName, passphrase);
+            return std::make_unique<KeyHandle>(getHexaFromBuffer(writeEvpPkey(generateEvpPkey(), passphrase)),
+                                               passphrase);
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         SignaturePtr signMessage(const MessagePtr& message, const KeyHandlePtr& keyHandle)
         {
-            return std::make_unique<Signature>(Buffer::createFromHex("abcdef010203040506070809"));
+            //return std::make_unique<Signature>(Buffer::createFromHex("abcdef010203040506070809"));
+
+
+            auto xx = Buffer::createFromHex(keyHandle->getName());
+            auto signature = signMessage(messageBuffer, readEvpPkey(::Buffer{xx.cbegin(), xx.cend()}, keyHandle->getPassphrase()));
+            std::cout << "\n\nSignature computed = " << getHexaFromBuffer(signature);
+
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////

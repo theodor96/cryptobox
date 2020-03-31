@@ -1,51 +1,30 @@
-#ifndef SRC_OPERATIONS_H
-#define SRC_OPERATIONS_H
+#ifndef CRYPTOBOX_SRC_OPERATIONS_H
+#define CRYPTOBOX_SRC_OPERATIONS_H
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include <memory>
+#include "Types.h"
+
 #include <string>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace cryptobox
+namespace cryptobox::operations
 {
-    class KeyHandle;
-    class Message;
-    class Signature;
-}
+    /**
+     * TODO: write docs
+     */
+    KeyHandlePtr generateKey(const std::string& passphrase);
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * TODO: write docs
+     */
+    SignaturePtr signMessage(const MessagePtr& message, const KeyHandlePtr& keyHandle);
 
-namespace cryptobox
-{
-    using KeyHandlePtr = std::unique_ptr<KeyHandle>;
-    using MessagePtr = std::unique_ptr<Message>;
-    using SignaturePtr = std::unique_ptr<Signature>;
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	namespace operations
-	{
-        /**
-         * TODO: write docs
-         */
-		KeyHandlePtr generateKey(const std::string& passphrase);
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        /**
-         * TODO: write docs
-         */
-		SignaturePtr signMessage(const MessagePtr& message, const KeyHandlePtr& keyHandle);
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        /**
-         * TODO: write docs
-         */
-		bool verifySignature(const SignaturePtr& signature, const MessagePtr& message, const KeyHandlePtr& keyHandle);
-	}
+    /**
+     * TODO: write docs
+     */
+    bool verifySignature(const SignaturePtr& signature, const MessagePtr& message, const KeyHandlePtr& keyHandle);
 }
 
 #endif
