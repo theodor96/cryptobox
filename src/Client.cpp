@@ -40,7 +40,6 @@ public:
 
     void testBulk() const
     {
-
         for (auto itr = 0; itr < BULK_ITERATIONS_COUNT; ++itr)
         {
             try
