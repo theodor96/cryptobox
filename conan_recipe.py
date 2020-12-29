@@ -43,7 +43,7 @@ class CryptoboxConan(ConanFile):
 		# if there's any failure, let it propagate, but show a pretty error message
 		#
 		try:
-			self.run('git clone . {url}'.format(url=self._repository_url))
+			self.run('git clone {url} .'.format(url=self._repository_url))
 		except ConanException:
 			self.output.info('Unable to clone {name}. See errors below.'.format(name=self._repository_name))
 			raise
@@ -52,17 +52,13 @@ class CryptoboxConan(ConanFile):
 		if self._cmake:
 			return self._cmake
 
-		# also make sure Conan created the generator file successfully
-		#
-		if not os.path.exists(self._conan_cmake_generator_file):
-			raise ConanException('Conan CMake dependencies file {file} does not exist'.format(file=self._conan_cmake_generator_file))
+		if os.path.exists(self._conan_cmake_generator_file):
+			os.remove(self._conan_cmake_generator_file)
 
-		# create the build subfolder inside the source tree root and put the generator file in it
+		# create the build subfolder inside the source tree root
 		#
 		if not os.path.exists(self._build_subfolder):
 			os.makedirs(self._build_subfolder)
-
-		shutil.move(self._conan_cmake_generator_file, self._build_subfolder)
 
 		cmake = CMake(self)
 
