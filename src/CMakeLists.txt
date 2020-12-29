@@ -24,5 +24,5 @@ target_link_libraries(cryptobox PRIVATE
                       CONAN_PKG::openssl)
 
 install(TARGETS cryptobox
-        PUBLIC_HEADER DESTINATION include
+        PUBLIC_HEADER DESTINATION include/cryptobox
         LIBRARY DESTINATION lib)
