@@ -1,0 +1,8 @@
+[generators]
+cmake
+
+[requires]
+openssl/1.1.1i
+
+[options]
+openssl:shared=True
