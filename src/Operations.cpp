@@ -15,11 +15,7 @@ namespace cryptobox::operations
         auto [keyHandleName, publicKey] = writeEvpPkey(generateEvpPkey(), passphrase);
 
         auto keyHandle = std::make_unique<KeyHandle>(keyHandleName, passphrase);
-
-        // do not set the public key such that key will be re-read from storage upon signature verification
-        //
-        // keyHandle->setPublicKey(Buffer::createFromInternalBuffer(publicKey));
-        static_cast<void>(publicKey);
+        keyHandle->setPublicKey(Buffer::createFromInternalBuffer(publicKey));
 
         return keyHandle;
     }
